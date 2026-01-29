@@ -1,0 +1,14 @@
+{{define "notifications_list"}}
+{{if .}}
+{{range .}}
+{{template "notification_row" .}}
+{{end}}
+{{else}}
+<tr>
+    <td colspan="6" class="px-4 py-12 text-center text-gray-500">
+        <p>No notifications scheduled yet.</p>
+        <p class="text-sm mt-1">Add one using the form above.</p>
+    </td>
+</tr>
+{{end}}
+{{end}}

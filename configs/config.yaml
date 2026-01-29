@@ -1,0 +1,5 @@
+server:
+  port: ":8089"
+
+storage:
+  file_path: "data/data.json"

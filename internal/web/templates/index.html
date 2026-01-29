@@ -1,0 +1,132 @@
+{{template "base" .}}
+
+{{define "title"}}Pushover Notify{{end}}
+
+{{define "content"}}
+<div class="space-y-8">
+    <!-- Add Notification Form -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Add Notification</h2>
+
+        <form hx-post="/api/notifications"
+              hx-target="#notifications-list"
+              hx-swap="innerHTML"
+              hx-on::after-request="if(event.detail.successful) { this.reset(); setDefaultDateTime(); }"
+              class="space-y-4">
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Scheduled Time</label>
+                    <input type="datetime-local"
+                           id="datetime-input"
+                           name="datetime"
+                           required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <script>
+                        function setDefaultDateTime() {
+                            const now = new Date();
+                            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                            document.getElementById('datetime-input').value = now.toISOString().slice(0, 16);
+                        }
+                        setDefaultDateTime();
+                    </script>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Content</label>
+                    <input type="text"
+                           name="content"
+                           placeholder="Remind me to..."
+                           required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Repeat Times</label>
+                    <input type="number"
+                           name="repeat_times"
+                           value="{{.Defaults.RepeatTimes}}"
+                           required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Repeat Interval</label>
+                    <div class="flex space-x-2">
+                        <input type="number"
+                               name="repeat_interval_value"
+                               value="{{.RepeatIntervalValue}}"
+                               min="1"
+                               required
+                               class="w-24 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <select name="repeat_interval_unit"
+                                class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="m" {{if eq .RepeatIntervalUnit "m"}}selected{{end}}>Minutes</option>
+                            <option value="h" {{if eq .RepeatIntervalUnit "h"}}selected{{end}}>Hours</option>
+                            <option value="d" {{if eq .RepeatIntervalUnit "d"}}selected{{end}}>Days</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end">
+                <button type="submit"
+                        class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+                    Add Notification
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Notifications List -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900">Scheduled Notifications</h2>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Scheduled Time
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Content
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                        </th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Sent
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Repeat
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="notifications-list"
+                       class="bg-white divide-y divide-gray-200">
+                    {{if .Notifications}}
+                    {{range .Notifications}}
+                    {{template "notification_row" .}}
+                    {{end}}
+                    {{else}}
+                    <tr>
+                        <td colspan="6" class="px-4 py-12 text-center text-gray-500">
+                            <p>No notifications scheduled yet.</p>
+                            <p class="text-sm mt-1">Add one using the form above.</p>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{end}}

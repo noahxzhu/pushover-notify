@@ -1,0 +1,24 @@
+[Unit]
+Description=Pushover Notify Service
+Documentation=https://github.com/noahxzhu/pushover-notify
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+# Image Name
+Image=localhost/pushover-notify:latest
+
+# Basic Config
+AutoUpdate=registry
+Timezone=Asia/Shanghai
+
+# Expose the Web UI Port
+PublishPort=8089:8089
+
+# Persistence
+# Map the named volume 'pushover-notify-data' to '/app/data' inside the container
+Volume=%h/pushover-notify/data:/app/data
+
+[Install]
+# When running as a user service (rootless):
+WantedBy=default.target

@@ -1,0 +1,99 @@
+{{define "base"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{block "title" .}}Pushover Notify{{end}}</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    {{block "nav" .}}
+    <nav class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+            <a href="/" class="text-xl font-semibold text-gray-800 hover:text-blue-600 transition-colors">
+                Pushover Notify
+            </a>
+            <div class="flex items-center space-x-4">
+                <a href="/settings" class="text-gray-600 hover:text-blue-600 transition-colors">Settings</a>
+                <a href="/logout" class="text-gray-600 hover:text-red-600 transition-colors">Logout</a>
+            </div>
+        </div>
+    </nav>
+    {{end}}
+
+    <main class="max-w-4xl mx-auto px-4 py-8">
+        {{block "content" .}}{{end}}
+    </main>
+
+    <!-- Modal Container -->
+    <div id="modal-container"></div>
+
+    <!-- Modal Backdrop (hidden by default) -->
+    <div id="modal-backdrop"
+         class="fixed inset-0 bg-black bg-opacity-50 hidden z-40"
+         onclick="closeModal()"></div>
+
+    <script>
+        function closeModal() {
+            document.getElementById('modal-container').innerHTML = '';
+            document.getElementById('modal-backdrop').classList.add('hidden');
+        }
+
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            if (evt.detail.target.id === 'modal-container') {
+                document.getElementById('modal-backdrop').classList.remove('hidden');
+            }
+        });
+
+        document.body.addEventListener('closeModal', function() {
+            closeModal();
+        });
+
+        // SSE for real-time updates
+        (function() {
+            const notificationsList = document.getElementById('notifications-list');
+            if (!notificationsList) return;
+
+            let eventSource = null;
+            let reconnectTimeout = null;
+
+            function connect() {
+                if (eventSource) {
+                    eventSource.close();
+                }
+
+                eventSource = new EventSource('/api/events');
+
+                eventSource.addEventListener('refresh', function(e) {
+                    htmx.ajax('GET', '/api/notifications-list', {
+                        target: '#notifications-list',
+                        swap: 'innerHTML'
+                    });
+                });
+
+                eventSource.addEventListener('connected', function(e) {
+                    console.log('SSE connected');
+                });
+
+                eventSource.onerror = function(e) {
+                    console.log('SSE error, reconnecting...');
+                    eventSource.close();
+                    // Reconnect after 3 seconds
+                    reconnectTimeout = setTimeout(connect, 3000);
+                };
+            }
+
+            connect();
+
+            // Cleanup on page unload
+            window.addEventListener('beforeunload', function() {
+                if (reconnectTimeout) clearTimeout(reconnectTimeout);
+                if (eventSource) eventSource.close();
+            });
+        })();
+    </script>
+</body>
+</html>
+{{end}}

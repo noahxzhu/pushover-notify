@@ -14,6 +14,7 @@ type Worker struct {
 	store      *storage.Store
 	client     *pushover.Client
 	updateChan chan struct{}
+	onUpdate   func() // Callback when notifications are updated
 }
 
 func NewWorker(store *storage.Store) *Worker {
@@ -22,6 +23,11 @@ func NewWorker(store *storage.Store) *Worker {
 		client:     &pushover.Client{},
 		updateChan: make(chan struct{}, 1),
 	}
+}
+
+// SetOnUpdate sets a callback function that will be called when notifications are updated
+func (w *Worker) SetOnUpdate(fn func()) {
+	w.onUpdate = fn
 }
 
 // Refresh signals the worker to re-evaluate the schedule immediately
@@ -92,24 +98,13 @@ func (w *Worker) Start(ctx context.Context) {
 func (w *Worker) checkAndProcess() time.Time {
 	settings := w.store.GetSettings()
 
-	// If credentials missing, we can't send, but we still need to wait?
-	// If missing, we might as well idle until settings update?
+	// If credentials missing, we can't send
 	if settings.PushoverToken == "" || settings.PushoverUser == "" {
 		return time.Time{} // Return zero to idle
 	}
 
 	w.client.Token = settings.PushoverToken
 	w.client.User = settings.PushoverUser
-
-	retryInterval, err := time.ParseDuration(settings.RetryInterval)
-	if err != nil {
-		retryInterval = 30 * time.Minute
-	}
-
-	maxRetries := settings.MaxRetries
-	if maxRetries == 0 {
-		maxRetries = 3
-	}
 
 	pending := w.store.GetPending()
 	now := time.Now()
@@ -118,32 +113,38 @@ func (w *Worker) checkAndProcess() time.Time {
 	var earliestNext time.Time
 
 	for _, n := range pending {
+		// Use per-notification settings
+		repeatInterval, err := time.ParseDuration(n.RepeatInterval)
+		if err != nil {
+			repeatInterval = 30 * time.Minute
+		}
+
+		repeatTimes := n.RepeatTimes
+		if repeatTimes == 0 {
+			repeatTimes = 3
+		}
+
 		// Calculate when this notification SHOULD be sent next
 		var nextSendTime time.Time
 
 		if n.SendsCount == 0 {
-			nextSendTime = n.ScheduledTime
+			nextSendTime = n.ScheduledTime.Truncate(time.Minute)
 		} else {
-			nextSendTime = n.LastPushTime.Add(retryInterval)
+			// Calculate next time based on original scheduled time + intervals
+			// This ensures all repeats are at XX:XX:00
+			nextSendTime = n.ScheduledTime.Truncate(time.Minute).Add(repeatInterval * time.Duration(n.SendsCount))
 		}
 
 		// Check if it's due now (or past due)
 		if !now.Before(nextSendTime) {
 			// IT IS DUE
-			if n.SendsCount < maxRetries {
-				slog.Info("Sending notification", "content", n.Content, "attempt", n.SendsCount+1, "max", maxRetries)
+			if n.SendsCount < repeatTimes {
+				delay := now.Sub(nextSendTime)
+				slog.Info("Sending notification", "content", n.Content, "attempt", n.SendsCount+1, "max", repeatTimes, "scheduled", nextSendTime.Format("15:04:05"), "delay", delay)
 				err := w.client.SendMessage("Reminder", n.Content)
 				if err != nil {
 					slog.Error("Failed to send pushover message", "error", err)
-					// On failure, when to retry?
-					// For simplicty, try again in 1 minute? Or stick to interval?
-					// Let's stick to interval or try next tick?
-					// If we retried immediately it would spam.
-					// Let's assume we maintain the interval.
-					// BUT, if we failed, we haven't updated LastPushTime.
-					// So next loop (immediate) it would try again. infinite loop of failures?
-					// To avoid this, we should probably update LastPushTime even on failure OR add a separate "LastTryTime".
-					// For this project, let's update LastPushTime so we don't spam.
+					// Update LastPushTime even on failure to avoid spamming
 					n.LastPushTime = now
 					saveNeeded = true
 				} else {
@@ -153,13 +154,14 @@ func (w *Worker) checkAndProcess() time.Time {
 				}
 			}
 
-			if n.SendsCount >= maxRetries {
+			if n.SendsCount >= repeatTimes {
 				n.Status = model.StatusDone
 				saveNeeded = true
 				slog.Info("Notification marked as Done", "id", n.ID)
 			} else {
 				// Calculate NEXT time for this item after processing
-				nextForThis := n.LastPushTime.Add(retryInterval)
+				// Use scheduled time + intervals to keep at XX:XX:00
+				nextForThis := n.ScheduledTime.Truncate(time.Minute).Add(repeatInterval * time.Duration(n.SendsCount))
 				if earliestNext.IsZero() || nextForThis.Before(earliestNext) {
 					earliestNext = nextForThis
 				}
@@ -175,6 +177,8 @@ func (w *Worker) checkAndProcess() time.Time {
 	if saveNeeded {
 		if err := w.store.Save(); err != nil {
 			slog.Error("Failed to save store", "error", err)
+		} else if w.onUpdate != nil {
+			w.onUpdate()
 		}
 	}
 

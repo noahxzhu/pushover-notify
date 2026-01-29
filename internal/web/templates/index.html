@@ -1,129 +1,132 @@
-<!DOCTYPE html>
-<html lang="en">
+{{template "base" .}}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pushover Notify GTD</title>
-    <style>
-        body {
-            font-family: sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
+{{define "title"}}Pushover Notify{{end}}
 
-        h1 {
-            border-bottom: 2px solid #eee;
-            padding-bottom: 10px;
-        }
+{{define "content"}}
+<div class="space-y-8">
+    <!-- Add Notification Form -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Add Notification</h2>
 
-        .form-group {
-            margin-bottom: 15px;
-        }
+        <form hx-post="/api/notifications"
+              hx-target="#notifications-list"
+              hx-swap="innerHTML"
+              hx-on::after-request="if(event.detail.successful) { this.reset(); setDefaultDateTime(); }"
+              class="space-y-4">
 
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Scheduled Time</label>
+                    <input type="datetime-local"
+                           id="datetime-input"
+                           name="datetime"
+                           required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <script>
+                        function setDefaultDateTime() {
+                            const now = new Date();
+                            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                            document.getElementById('datetime-input').value = now.toISOString().slice(0, 16);
+                        }
+                        setDefaultDateTime();
+                    </script>
+                </div>
 
-        input[type="text"],
-        input[type="datetime-local"] {
-            width: 100%;
-            padding: 8px;
-            box-sizing: border-box;
-        }
-
-        input[name="date"],
-        input[name="time"] {
-            width: 48%;
-            display: inline-block;
-        }
-
-        button {
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background-color: #0056b3;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 30px;
-        }
-
-        th,
-        td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-
-        th {
-            background-color: #f2f2f2;
-        }
-
-        .status-Done {
-            color: green;
-        }
-
-        .status-Pending {
-            color: orange;
-        }
-    </style>
-</head>
-
-<body>
-    <div style="float: right;">
-        <a href="/settings">Settings</a> | <a href="/logout">Logout</a>
-    </div>
-    <h1>Notify GTD</h1>
-
-    <div class="add-form">
-        <h2>Add Notification</h2>
-        <form action="/add" method="POST">
-            <div class="form-group">
-                <label>Scheduled Time</label>
-                <input type="datetime-local" name="datetime" required>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Content</label>
+                    <input type="text"
+                           name="content"
+                           placeholder="Remind me to..."
+                           required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
             </div>
-            <div class="form-group">
-                <label>Content</label>
-                <input type="text" name="content" placeholder="Remind me to..." required>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Repeat Times</label>
+                    <input type="number"
+                           name="repeat_times"
+                           value="{{.Defaults.RepeatTimes}}"
+                           required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Repeat Interval</label>
+                    <div class="flex space-x-2">
+                        <input type="number"
+                               name="repeat_interval_value"
+                               value="{{.RepeatIntervalValue}}"
+                               min="1"
+                               required
+                               class="w-24 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <select name="repeat_interval_unit"
+                                class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="m" {{if eq .RepeatIntervalUnit "m"}}selected{{end}}>Minutes</option>
+                            <option value="h" {{if eq .RepeatIntervalUnit "h"}}selected{{end}}>Hours</option>
+                            <option value="d" {{if eq .RepeatIntervalUnit "d"}}selected{{end}}>Days</option>
+                        </select>
+                    </div>
+                </div>
             </div>
-            <button type="submit">Add Notification</button>
+
+            <div class="flex justify-end">
+                <button type="submit"
+                        class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+                    Add Notification
+                </button>
+            </div>
         </form>
     </div>
 
-    <div class="list">
-        <h2>Scheduled Notifications</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Scheduled Time</th>
-                    <th>Content</th>
-                    <th>Status</th>
-                    <th>Sent Count</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{range .}}
-                <tr>
-                    <td>{{.ScheduledTime.Format "2006-01-02 03:04:05 PM"}}</td>
-                    <td>{{.Content}}</td>
-                    <td class="status-{{.Status}}">{{.Status}}</td>
-                    <td>{{.SendsCount}}</td>
-                </tr>
-                {{end}}
-            </tbody>
-        </table>
-    </div>
-</body>
+    <!-- Notifications List -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900">Scheduled Notifications</h2>
+        </div>
 
-</html>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Scheduled Time
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Content
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                        </th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Sent
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Repeat
+                        </th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="notifications-list"
+                       class="bg-white divide-y divide-gray-200">
+                    {{if .Notifications}}
+                    {{range .Notifications}}
+                    {{template "notification_row" .}}
+                    {{end}}
+                    {{else}}
+                    <tr>
+                        <td colspan="6" class="px-4 py-12 text-center text-gray-500">
+                            <p>No notifications scheduled yet.</p>
+                            <p class="text-sm mt-1">Add one using the form above.</p>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{end}}

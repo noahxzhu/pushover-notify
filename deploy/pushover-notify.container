@@ -17,7 +17,7 @@ PublishPort=8089:8089
 
 # Persistence
 # Map the named volume 'pushover-notify-data' to '/app/data' inside the container
-Volume=pushover-notify-data:/app/data
+Volume=%h/pushover-notify/data:/app/data
 
 [Install]
 # When running as a user service (rootless):
